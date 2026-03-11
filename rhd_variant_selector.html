@@ -128,6 +128,51 @@
       font-size: 0.82rem;
     }
 
+    .marker-tools {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .marker-tool-button,
+    .bulk-button {
+      border: 1px solid rgba(44, 36, 27, 0.15);
+      border-radius: 999px;
+      padding: 5px 9px;
+      background: rgba(255, 255, 255, 0.75);
+      color: var(--text);
+      font: 600 0.77rem/1 "Avenir Next", "Segoe UI", sans-serif;
+      cursor: pointer;
+      transition: transform 120ms ease, filter 120ms ease, background 120ms ease;
+    }
+
+    .marker-tool-button:hover,
+    .bulk-button:hover {
+      filter: brightness(0.98);
+      transform: translateY(-1px);
+    }
+
+    .marker-tool-button.active {
+      background: #d9c4ab;
+    }
+
+    .marker-tool-button:disabled,
+    .bulk-button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+      filter: none;
+    }
+
+    .selection-count {
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin-left: auto;
+      white-space: nowrap;
+    }
+
     .marker-list {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -178,6 +223,15 @@
 
     .marker-row[data-state="LS"] {
       background: color-mix(in srgb, var(--ls) 78%, white);
+    }
+
+    .marker-row.selected {
+      border-color: var(--accent);
+      box-shadow: inset 0 0 0 2px rgba(112, 87, 68, 0.4);
+    }
+
+    .marker-row.select-mode {
+      cursor: cell;
     }
 
     .marker-label {
@@ -321,6 +375,7 @@
       <p class="subtext">
         Click a result button to cycle <strong>AA -&gt; AB -&gt; BB -&gt; LS</strong>.
         The marker list is scrollable, and the summary updates live for whichever assay tab is active.
+        Use <strong>Multi-select</strong> to pick several markers and apply one call to all of them at once.
       </p>
       <div class="tab-bar" id="tabBar"></div>
     </section>
@@ -330,6 +385,15 @@
         <div class="panel-title">
           <h2>Markers</h2>
           <span id="markerMeta">Scrollable selector</span>
+        </div>
+        <div class="marker-tools">
+          <button class="marker-tool-button" id="multiSelectToggle" type="button">Multi-select</button>
+          <button class="bulk-button" id="bulkSetAA" type="button">AA</button>
+          <button class="bulk-button" id="bulkSetAB" type="button">AB</button>
+          <button class="bulk-button" id="bulkSetBB" type="button">BB</button>
+          <button class="bulk-button" id="bulkSetLS" type="button">LS</button>
+          <button class="marker-tool-button" id="clearSelectionButton" type="button">Clear</button>
+          <span class="selection-count" id="selectionCount">0 selected</span>
         </div>
         <div class="marker-list" id="markerList"></div>
       </section>
@@ -448,11 +512,15 @@
     };
 
     let activeAssayKey = "rhd";
+    let multiSelectMode = false;
     const callStateByAssay = Object.fromEntries(
       Object.entries(ASSAYS).map(([key, assay]) => [
         key,
         new Map(assay.markers.map((marker) => [marker.label, "AA"]))
       ])
+    );
+    const selectedMarkersByAssay = Object.fromEntries(
+      Object.keys(ASSAYS).map((key) => [key, new Set()])
     );
 
     const tabBar = document.getElementById("tabBar");
@@ -464,6 +532,15 @@
     const resetButton = document.getElementById("resetButton");
     const copyButton = document.getElementById("copyButton");
     const downloadButton = document.getElementById("downloadButton");
+    const multiSelectToggle = document.getElementById("multiSelectToggle");
+    const clearSelectionButton = document.getElementById("clearSelectionButton");
+    const selectionCount = document.getElementById("selectionCount");
+    const bulkButtons = {
+      AA: document.getElementById("bulkSetAA"),
+      AB: document.getElementById("bulkSetAB"),
+      BB: document.getElementById("bulkSetBB"),
+      LS: document.getElementById("bulkSetLS")
+    };
     let currentOutputText = "";
 
     function getActiveAssay() {
@@ -472,6 +549,10 @@
 
     function getActiveState() {
       return callStateByAssay[activeAssayKey];
+    }
+
+    function getActiveSelection() {
+      return selectedMarkersByAssay[activeAssayKey];
     }
 
     function formatTimestamp(date) {
@@ -593,18 +674,73 @@
       return CALL_OPTIONS[(index + 1) % CALL_OPTIONS.length];
     }
 
+    function renderMarkerTools() {
+      const selected = getActiveSelection();
+      const hasSelection = selected.size > 0;
+
+      multiSelectToggle.classList.toggle("active", multiSelectMode);
+      multiSelectToggle.textContent = multiSelectMode ? "Done selecting" : "Multi-select";
+      clearSelectionButton.disabled = !hasSelection;
+      selectionCount.textContent = `${selected.size} selected`;
+
+      for (const button of Object.values(bulkButtons)) {
+        button.disabled = !hasSelection;
+      }
+    }
+
+    function toggleMarkerSelection(markerLabel) {
+      const selected = getActiveSelection();
+      if (selected.has(markerLabel)) {
+        selected.delete(markerLabel);
+      } else {
+        selected.add(markerLabel);
+      }
+      renderMarkers();
+      renderMarkerTools();
+    }
+
+    function clearSelection() {
+      getActiveSelection().clear();
+      renderMarkers();
+      renderMarkerTools();
+    }
+
+    function applyBulkCall(nextCallValue) {
+      const callState = getActiveState();
+      const selected = getActiveSelection();
+      if (selected.size === 0) {
+        return;
+      }
+
+      for (const markerLabel of selected) {
+        callState.set(markerLabel, nextCallValue);
+      }
+
+      updateOutput();
+      renderMarkers();
+      renderMarkerTools();
+      status.textContent = `Set ${selected.size} selected marker(s) to ${nextCallValue}.`;
+    }
+
     function renderMarkers() {
       const assay = getActiveAssay();
       const callState = getActiveState();
+      const selected = getActiveSelection();
       const fragment = document.createDocumentFragment();
 
       for (const marker of assay.markers) {
         const row = document.createElement("button");
         row.type = "button";
         row.className = "marker-row";
+        if (multiSelectMode) {
+          row.classList.add("select-mode");
+        }
         row.dataset.state = callState.get(marker.label);
         if (marker.isControl) {
           row.classList.add("control");
+        }
+        if (selected.has(marker.label)) {
+          row.classList.add("selected");
         }
 
         const label = document.createElement("span");
@@ -616,6 +752,15 @@
         state.textContent = callState.get(marker.label);
 
         row.addEventListener("click", () => {
+          if (multiSelectMode) {
+            const wasSelected = selected.has(marker.label);
+            toggleMarkerSelection(marker.label);
+            status.textContent = wasSelected
+              ? `${marker.label} deselected.`
+              : `${marker.label} selected.`;
+            return;
+          }
+
           const updated = nextCall(callState.get(marker.label));
           callState.set(marker.label, updated);
           row.dataset.state = updated;
@@ -631,6 +776,7 @@
       markerList.replaceChildren(fragment);
       markerMeta.textContent = `${assay.label} · ${assay.markers.length} entries`;
       outputMeta.textContent = `${assay.fileName} · table preview`;
+      renderMarkerTools();
     }
 
     function renderTabs() {
@@ -695,6 +841,7 @@
       for (const marker of assay.markers) {
         callState.set(marker.label, "AA");
       }
+      getActiveSelection().clear();
       renderMarkers();
       updateOutput();
       status.textContent = `All ${assay.label} markers reset to AA.`;
@@ -703,6 +850,23 @@
     resetButton.addEventListener("click", resetAll);
     copyButton.addEventListener("click", copyOutput);
     downloadButton.addEventListener("click", downloadOutput);
+    multiSelectToggle.addEventListener("click", () => {
+      multiSelectMode = !multiSelectMode;
+      if (!multiSelectMode) {
+        clearSelection();
+        status.textContent = "Multi-select off.";
+      } else {
+        renderMarkers();
+        status.textContent = "Multi-select on. Click rows to select them.";
+      }
+    });
+    clearSelectionButton.addEventListener("click", () => {
+      clearSelection();
+      status.textContent = "Selection cleared.";
+    });
+    for (const [callValue, button] of Object.entries(bulkButtons)) {
+      button.addEventListener("click", () => applyBulkCall(callValue));
+    }
 
     renderTabs();
     renderMarkers();
