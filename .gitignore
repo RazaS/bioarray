@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+*.pdf
+rhd_variant_selector.py

@@ -1,0 +1,712 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RHD / RHCE Variant Selector</title>
+  <style>
+    :root {
+      --bg: #f5f0e8;
+      --panel: #fffaf2;
+      --border: #c7b9a5;
+      --text: #2c241b;
+      --muted: #6e6254;
+      --aa: #d7ddd2;
+      --ab: #f1cd8d;
+      --bb: #df9b7a;
+      --ls: #cbb8d9;
+      --accent: #705744;
+      --shadow: 0 12px 30px rgba(64, 46, 27, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top right, rgba(199, 185, 165, 0.35), transparent 25%),
+        linear-gradient(180deg, #f8f2ea 0%, var(--bg) 100%);
+      color: var(--text);
+    }
+
+    .page {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 12px;
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 10px;
+    }
+
+    .header,
+    .footer-note,
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .header {
+      padding: 14px 16px;
+    }
+
+    h1 {
+      margin: 0 0 4px;
+      font-size: clamp(1.2rem, 1.8vw, 1.6rem);
+      line-height: 1.1;
+    }
+
+    .subtext {
+      margin: 0;
+      color: var(--muted);
+      max-width: 900px;
+      line-height: 1.3;
+      font-size: 0.92rem;
+    }
+
+    .tab-bar {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
+    .tab-button {
+      border: 1px solid rgba(44, 36, 27, 0.15);
+      border-radius: 999px;
+      padding: 6px 12px;
+      background: rgba(239, 228, 212, 0.7);
+      color: var(--text);
+      font: 600 0.82rem/1 "Avenir Next", "Segoe UI", sans-serif;
+      cursor: pointer;
+      transition: transform 120ms ease, filter 120ms ease, background 120ms ease;
+    }
+
+    .tab-button:hover {
+      filter: brightness(0.98);
+      transform: translateY(-1px);
+    }
+
+    .tab-button.active {
+      background: #d9c4ab;
+    }
+
+    .app-grid {
+      display: grid;
+      grid-template-columns: minmax(520px, 1.35fr) minmax(320px, 0.65fr);
+      gap: 10px;
+      min-height: 0;
+    }
+
+    .panel {
+      padding: 10px;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .panel-title h2 {
+      margin: 0;
+      font-size: 0.96rem;
+    }
+
+    .panel-title span {
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .marker-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 6px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.75);
+      overflow-y: auto;
+      padding: 6px;
+      min-height: 0;
+      flex: 1 1 auto;
+      max-height: calc(100vh - 150px);
+    }
+
+    .marker-row {
+      appearance: none;
+      width: 100%;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      padding: 6px 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(199, 185, 165, 0.5);
+      background: rgba(199, 185, 165, 0.08);
+      color: var(--text);
+      text-align: left;
+      cursor: pointer;
+      transition: transform 120ms ease, filter 120ms ease, background 120ms ease;
+    }
+
+    .marker-row:hover {
+      filter: brightness(0.98);
+      transform: translateY(-1px);
+    }
+
+    .marker-row[data-state="AA"] {
+      background: color-mix(in srgb, var(--aa) 72%, white);
+    }
+
+    .marker-row[data-state="AB"] {
+      background: color-mix(in srgb, var(--ab) 78%, white);
+    }
+
+    .marker-row[data-state="BB"] {
+      background: color-mix(in srgb, var(--bb) 78%, white);
+    }
+
+    .marker-row[data-state="LS"] {
+      background: color-mix(in srgb, var(--ls) 78%, white);
+    }
+
+    .marker-label {
+      font-size: 0.83rem;
+      line-height: 1.15;
+      word-break: break-word;
+    }
+
+    .marker-row.control .marker-label {
+      color: var(--muted);
+    }
+
+    .marker-state,
+    .action-button {
+      border: 1px solid rgba(44, 36, 27, 0.15);
+      border-radius: 999px;
+      padding: 5px 9px;
+      font: 600 0.78rem/1 "SFMono-Regular", Menlo, Consolas, monospace;
+      background: rgba(255, 255, 255, 0.55);
+    }
+
+    .action-button {
+      cursor: pointer;
+      transition: transform 120ms ease, filter 120ms ease, background 120ms ease;
+    }
+
+    .action-button:hover {
+      filter: brightness(0.98);
+      transform: translateY(-1px);
+    }
+
+    .preview-box {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 0;
+      flex: 1 1 auto;
+    }
+
+    .preview-table-wrap {
+      width: 100%;
+      min-height: 0;
+      flex: 1 1 auto;
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.78);
+    }
+
+    .preview-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+      line-height: 1.25;
+    }
+
+    .preview-table th,
+    .preview-table td {
+      padding: 7px 9px;
+      border-bottom: 1px solid rgba(199, 185, 165, 0.45);
+      vertical-align: top;
+      text-align: left;
+    }
+
+    .preview-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #f2e8da;
+      font-weight: 700;
+    }
+
+    .preview-table .section-row td {
+      background: rgba(217, 196, 171, 0.35);
+      font-weight: 700;
+      border-bottom-color: rgba(199, 185, 165, 0.75);
+    }
+
+    .preview-table .empty-row td {
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    .preview-table td:last-child,
+    .preview-table th:last-child {
+      width: 84px;
+      font: 600 0.78rem/1 "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .action-button {
+      background: #efe4d4;
+      color: var(--text);
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      font-size: 0.82rem;
+      line-height: 1.1;
+    }
+
+    .status {
+      color: var(--muted);
+      min-height: 1.3em;
+      font-size: 0.82rem;
+    }
+
+    .footer-note {
+      padding: 10px 12px;
+      color: var(--muted);
+      font-size: 0.8rem;
+      line-height: 1.3;
+    }
+
+    @media (max-width: 960px) {
+      .page {
+        padding: 10px;
+      }
+
+      .app-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .marker-list {
+        grid-template-columns: 1fr;
+        max-height: 48vh;
+      }
+
+      .panel {
+        min-height: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="header">
+      <h1>RHD / RHCE Variant Selector</h1>
+      <p class="subtext">
+        Click a result button to cycle <strong>AA -&gt; AB -&gt; BB -&gt; LS</strong>.
+        The marker list is scrollable, and the summary updates live for whichever assay tab is active.
+      </p>
+      <div class="tab-bar" id="tabBar"></div>
+    </section>
+
+    <main class="app-grid">
+      <section class="panel">
+        <div class="panel-title">
+          <h2>Markers</h2>
+          <span id="markerMeta">Scrollable selector</span>
+        </div>
+        <div class="marker-list" id="markerList"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">
+          <h2>Output Preview</h2>
+          <span id="outputMeta">Text file ready</span>
+        </div>
+        <div class="preview-box">
+          <div class="preview-table-wrap">
+            <table class="preview-table">
+              <thead>
+                <tr>
+                  <th>Marker</th>
+                  <th>Call</th>
+                </tr>
+              </thead>
+              <tbody id="outputTableBody"></tbody>
+            </table>
+          </div>
+          <div class="actions">
+            <button class="action-button" id="resetButton" type="button">Reset All To AA</button>
+            <button class="action-button" id="copyButton" type="button">Copy Output</button>
+            <button class="action-button" id="downloadButton" type="button">Download Output</button>
+          </div>
+          <div class="status" id="status">Ready.</div>
+        </div>
+      </section>
+    </main>
+
+    <section class="footer-note">
+      Open this file directly in a browser. No server is required. Browser clipboard behavior can vary for local files, so download remains available even if copy is blocked.
+    </section>
+  </div>
+
+  <script>
+    const CALL_OPTIONS = ["AA", "AB", "BB", "LS"];
+
+    const ASSAYS = {
+      rhd: {
+        label: "RHD",
+        fileName: "rhd_variant_output.txt",
+        markers: [
+          { label: "8 C>G (S3C)", isControl: false },
+          { label: "48 G>C (W16C)", isControl: false },
+          { label: "48 G>A (W16X)", isControl: false },
+          { label: "186 G>T (L62F)", isControl: false },
+          { label: "209 G>A (R70Q)", isControl: false },
+          { label: "340 C>T (R114W)", isControl: false },
+          { label: "410 C>T (A137V)", isControl: false },
+          { label: "446 C>A (A149D)", isControl: false },
+          { label: "455 A>C (N152T)", isControl: false },
+          { label: "In3+1G>A (IVS3+1G/A)", isControl: false },
+          { label: "In3 -19 37 bp duplication (psi D)", isControl: false },
+          { label: "509 T>C (M170T)", isControl: false },
+          { label: "514 A>T (I172F)", isControl: false },
+          { label: "602 C>G (T201R)", isControl: false },
+          { label: "667 T>G (F223V)", isControl: false },
+          { label: "676 G>C (A226P)", isControl: false },
+          { label: "689 G>T (S230I)", isControl: false },
+          { label: "697 G>C (E233Q)", isControl: false },
+          { label: "697 G>A (E233K)", isControl: false },
+          { label: "712 G>A (V238M)", isControl: false },
+          { label: "733 G>C (V245L)", isControl: false },
+          { label: "787 G>A (G263R)", isControl: false },
+          { label: "807 T>G (Y269X)", isControl: false },
+          { label: "809 T>G (V270G)", isControl: false },
+          { label: "835 G>A (V279M)", isControl: false },
+          { label: "845 G>A (G282D)", isControl: false },
+          { label: "848 C>T (T283I)", isControl: false },
+          { label: "885 G>T (M295I)", isControl: false },
+          { label: "1025 T>C (I342T)", isControl: false },
+          { label: "1048 G>C (D350H)", isControl: false },
+          { label: "1057 G>T (G353W)", isControl: false },
+          { label: "1063 G>A (G355S)", isControl: false },
+          { label: "1154 G>C (G385A)", isControl: false },
+          { label: "1193 A>T (E398V)", isControl: false },
+          { label: "1227 G>A (1227G/A)", isControl: false },
+          { label: "(IPC1)", isControl: true },
+          { label: "(IPC2)", isControl: true }
+        ]
+      },
+      rhce: {
+        label: "RHCE",
+        fileName: "rhce_variant_output.txt",
+        markers: [
+          { label: "48 G>C (W16C)", isControl: false },
+          { label: "106 G>C (A36T)", isControl: false },
+          { label: "122 A>G (Q41R)", isControl: false },
+          { label: "307 C>T (P103S)", isControl: false },
+          { label: "109bp intron 2 ins (109Ins)", isControl: false },
+          { label: "340 C>T (R114W)", isControl: false },
+          { label: "344 T>G (L115R)", isControl: false },
+          { label: "365 C>T (S122L)", isControl: false },
+          { label: "455 C>A (T152N)", isControl: false },
+          { label: "461 G>C (R154T)", isControl: false },
+          { label: "500 T>A (M167K)", isControl: false },
+          { label: "538 G>C (G180R)", isControl: false },
+          { label: "602 G>C (R201T)", isControl: false },
+          { label: "667 G>T (V223F)", isControl: false },
+          { label: "676 G>C (A226P)", isControl: false },
+          { label: "697 C>G (Q233E)", isControl: false },
+          { label: "712 A>G (M238V)", isControl: false },
+          { label: "733 C>G (L245V)", isControl: false },
+          { label: "748 G>A (V250M)", isControl: false },
+          { label: "744 T>C (dT744dC)", isControl: false },
+          { label: "818 C>T (A273V)", isControl: false },
+          { label: "916 A>G (I306V)", isControl: false },
+          { label: "1006 G>T (G336C)", isControl: false },
+          { label: "1025 C>T (T342I)", isControl: false },
+          { label: "CdeS 5'UTR (Rh rs)", isControl: false },
+          { label: "(IPC)", isControl: true }
+        ]
+      }
+    };
+
+    let activeAssayKey = "rhd";
+    const callStateByAssay = Object.fromEntries(
+      Object.entries(ASSAYS).map(([key, assay]) => [
+        key,
+        new Map(assay.markers.map((marker) => [marker.label, "AA"]))
+      ])
+    );
+
+    const tabBar = document.getElementById("tabBar");
+    const markerList = document.getElementById("markerList");
+    const outputTableBody = document.getElementById("outputTableBody");
+    const status = document.getElementById("status");
+    const markerMeta = document.getElementById("markerMeta");
+    const outputMeta = document.getElementById("outputMeta");
+    const resetButton = document.getElementById("resetButton");
+    const copyButton = document.getElementById("copyButton");
+    const downloadButton = document.getElementById("downloadButton");
+    let currentOutputText = "";
+
+    function getActiveAssay() {
+      return ASSAYS[activeAssayKey];
+    }
+
+    function getActiveState() {
+      return callStateByAssay[activeAssayKey];
+    }
+
+    function formatTimestamp(date) {
+      const pad = (value) => String(value).padStart(2, "0");
+      return [
+        date.getFullYear(),
+        pad(date.getMonth() + 1),
+        pad(date.getDate())
+      ].join("-") + " " + [
+        pad(date.getHours()),
+        pad(date.getMinutes()),
+        pad(date.getSeconds())
+      ].join(":");
+    }
+
+    function buildSummaryData() {
+      const assay = getActiveAssay();
+      const callState = getActiveState();
+      const heterozygous = [];
+      const homozygous = [];
+      const lowSignal = [];
+      const controls = [];
+
+      for (const marker of assay.markers) {
+        const call = callState.get(marker.label) || "AA";
+        if (marker.isControl) {
+          controls.push({ marker: marker.label, call });
+          continue;
+        }
+
+        if (call === "AB") {
+          heterozygous.push({ marker: marker.label, call });
+        } else if (call === "BB") {
+          homozygous.push({ marker: marker.label, call });
+        } else if (call !== "AA") {
+          lowSignal.push({ marker: marker.label, call });
+        }
+      }
+
+      return {
+        assayLabel: assay.label,
+        heterozygous,
+        homozygous,
+        lowSignal,
+        controls,
+        generatedAt: formatTimestamp(new Date())
+      };
+    }
+
+    function buildSummaryText(summary) {
+      return [
+        `${summary.assayLabel} Variant Summary`,
+        `Generated: ${summary.generatedAt}`,
+        "",
+        `Heterozygous variants (AB): ${summary.heterozygous.length}`,
+        ...(summary.heterozygous.length ? summary.heterozygous.map((row) => `- ${row.marker}`) : ["- None"]),
+        "",
+        `Homozygous variants (BB): ${summary.homozygous.length}`,
+        ...(summary.homozygous.length ? summary.homozygous.map((row) => `- ${row.marker}`) : ["- None"]),
+        "",
+        `Other non-AA calls: ${summary.lowSignal.length}`,
+        ...(summary.lowSignal.length ? summary.lowSignal.map((row) => `- ${row.marker}: ${row.call}`) : ["- None"]),
+        "",
+        "Controls",
+        ...summary.controls.map((row) => `- ${row.marker}: ${row.call}`)
+      ].join("\n");
+    }
+
+    function renderPreviewTable(summary) {
+      const sections = [
+        { title: `Heterozygous variants (AB) · ${summary.heterozygous.length}`, rows: summary.heterozygous },
+        { title: `Homozygous variants (BB) · ${summary.homozygous.length}`, rows: summary.homozygous },
+        { title: `Other non-AA calls · ${summary.lowSignal.length}`, rows: summary.lowSignal },
+        { title: `Controls · ${summary.controls.length}`, rows: summary.controls }
+      ];
+
+      const fragment = document.createDocumentFragment();
+
+      for (const section of sections) {
+        const sectionRow = document.createElement("tr");
+        sectionRow.className = "section-row";
+
+        const sectionCell = document.createElement("td");
+        sectionCell.colSpan = 2;
+        sectionCell.textContent = section.title;
+        sectionRow.appendChild(sectionCell);
+        fragment.appendChild(sectionRow);
+
+        if (!section.rows.length) {
+          const emptyRow = document.createElement("tr");
+          emptyRow.className = "empty-row";
+          emptyRow.innerHTML = "<td>None</td><td>-</td>";
+          fragment.appendChild(emptyRow);
+          continue;
+        }
+
+        for (const row of section.rows) {
+          const tr = document.createElement("tr");
+          const markerCell = document.createElement("td");
+          markerCell.textContent = row.marker;
+          const callCell = document.createElement("td");
+          callCell.textContent = row.call;
+          tr.append(markerCell, callCell);
+          fragment.appendChild(tr);
+        }
+      }
+
+      outputTableBody.replaceChildren(fragment);
+    }
+
+    function updateOutput() {
+      const summary = buildSummaryData();
+      currentOutputText = buildSummaryText(summary);
+      renderPreviewTable(summary);
+    }
+
+    function nextCall(current) {
+      const index = CALL_OPTIONS.indexOf(current);
+      return CALL_OPTIONS[(index + 1) % CALL_OPTIONS.length];
+    }
+
+    function renderMarkers() {
+      const assay = getActiveAssay();
+      const callState = getActiveState();
+      const fragment = document.createDocumentFragment();
+
+      for (const marker of assay.markers) {
+        const row = document.createElement("button");
+        row.type = "button";
+        row.className = "marker-row";
+        row.dataset.state = callState.get(marker.label);
+        if (marker.isControl) {
+          row.classList.add("control");
+        }
+
+        const label = document.createElement("span");
+        label.className = "marker-label";
+        label.textContent = marker.label;
+
+        const state = document.createElement("span");
+        state.className = "marker-state";
+        state.textContent = callState.get(marker.label);
+
+        row.addEventListener("click", () => {
+          const updated = nextCall(callState.get(marker.label));
+          callState.set(marker.label, updated);
+          row.dataset.state = updated;
+          state.textContent = updated;
+          updateOutput();
+          status.textContent = `${marker.label} set to ${updated}.`;
+        });
+
+        row.append(label, state);
+        fragment.appendChild(row);
+      }
+
+      markerList.replaceChildren(fragment);
+      markerMeta.textContent = `${assay.label} · ${assay.markers.length} entries`;
+      outputMeta.textContent = `${assay.fileName} · table preview`;
+    }
+
+    function renderTabs() {
+      const fragment = document.createDocumentFragment();
+
+      for (const [key, assay] of Object.entries(ASSAYS)) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `tab-button${key === activeAssayKey ? " active" : ""}`;
+        button.textContent = assay.label;
+        button.addEventListener("click", () => {
+          if (key === activeAssayKey) {
+            return;
+          }
+          activeAssayKey = key;
+          renderTabs();
+          renderMarkers();
+          updateOutput();
+          status.textContent = `Switched to ${assay.label}.`;
+        });
+        fragment.appendChild(button);
+      }
+
+      tabBar.replaceChildren(fragment);
+    }
+
+    async function copyOutput() {
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(currentOutputText);
+        } else {
+          const fallback = document.createElement("textarea");
+          fallback.value = currentOutputText;
+          document.body.appendChild(fallback);
+          fallback.select();
+          document.execCommand("copy");
+          fallback.remove();
+        }
+        status.textContent = "Output copied to clipboard.";
+      } catch (error) {
+        status.textContent = "Clipboard copy failed. Use Download Output instead.";
+      }
+    }
+
+    function downloadOutput() {
+      const assay = getActiveAssay();
+      const blob = new Blob([currentOutputText], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = assay.fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      status.textContent = `Downloaded ${assay.fileName}.`;
+    }
+
+    function resetAll() {
+      const assay = getActiveAssay();
+      const callState = getActiveState();
+      for (const marker of assay.markers) {
+        callState.set(marker.label, "AA");
+      }
+      renderMarkers();
+      updateOutput();
+      status.textContent = `All ${assay.label} markers reset to AA.`;
+    }
+
+    resetButton.addEventListener("click", resetAll);
+    copyButton.addEventListener("click", copyOutput);
+    downloadButton.addEventListener("click", downloadOutput);
+
+    renderTabs();
+    renderMarkers();
+    updateOutput();
+  </script>
+</body>
+</html>
